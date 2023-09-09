@@ -9,7 +9,7 @@ import chalk from 'chalk';
 
 import { bindingPath, Config } from '../../binding/index.js';
 import { JsPlugin } from '../plugin/index.js';
-import { DevServer } from '../server/index.js';
+// import { DevServer } from '../server/index.js';
 import { rustPluginResolver } from '../plugin/rustPluginResolver.js';
 import { parseUserConfig } from './schema.js';
 
@@ -167,9 +167,6 @@ export async function normalizeUserCompilationConfig(
     mode
   );
 
-  // check port availability: auto increment the port if a conflict occurs
-  await DevServer.resolvePortConflict(userConfig);
-
   if (
     config.output.targetEnv !== 'node' &&
     Array.isArray(config.runtime.plugins) &&
@@ -179,6 +176,7 @@ export async function normalizeUserCompilationConfig(
     config.runtime.plugins.push(hmrClientPluginPath);
     config.define.FARM_HMR_PORT = String(normalizedDevServerConfig.hmr.port);
     config.define.FARM_HMR_HOST = normalizedDevServerConfig.hmr.host;
+    config.define.FARM_HMR_PATH = normalizedDevServerConfig.hmr.path;
   }
 
   // we should not deep merge compilation.input
@@ -276,7 +274,8 @@ export async function normalizeUserCompilationConfig(
 export const DEFAULT_HMR_OPTIONS: Required<UserHmrConfig> = {
   ignores: [],
   host: 'localhost',
-  port: 9801,
+  port: 9000,
+  path: '/__hmr',
   watchOptions: {
     awaitWriteFinish: 10
   }
@@ -308,7 +307,11 @@ export function normalizeDevServerOptions(
   if (mode === 'production' || options?.hmr === false) {
     hmr = false;
   } else {
-    hmr = merge({}, DEFAULT_HMR_OPTIONS, options?.hmr ?? {});
+    const devServerHostInfo = {
+      host: options?.host,
+      port: options?.port
+    };
+    hmr = merge({}, DEFAULT_HMR_OPTIONS, devServerHostInfo, options?.hmr ?? {});
   }
 
   return merge({}, DEFAULT_DEV_SERVER_OPTIONS, options, {
@@ -481,4 +484,22 @@ export function normalizePublicDir(root: string, userPublicDir?: string) {
     ? publicDir
     : path.join(root, publicDir);
   return absPublicDirPath;
+}
+
+export function normalizePublicPath(publicPath = '/', logger: Logger) {
+  if (publicPath.startsWith('.') || publicPath.startsWith('..')) {
+    logger.warn(
+      ` (!) Irregular "publicPath" options: ${publicPath}, it should only be an absolute path, an url or an empty string`
+    );
+    publicPath = publicPath.replace(/^\.+/, '');
+  }
+  if (publicPath.startsWith('/') && !publicPath.startsWith('http')) {
+    publicPath = publicPath.slice(1);
+  }
+
+  if (!publicPath.endsWith('/') && !publicPath.startsWith('http')) {
+    publicPath = publicPath + '/';
+  }
+
+  return publicPath;
 }

@@ -366,6 +366,9 @@ export async function resolveUserConfig(
     userConfig.root = root;
   }
 
+  // check port availability: auto increment the port if a conflict occurs
+  await DevServer.resolvePortConflict(userConfig, logger);
+
   return userConfig;
 }
 

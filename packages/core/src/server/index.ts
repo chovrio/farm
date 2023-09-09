@@ -111,7 +111,9 @@ export class DevServer implements ImplDevServer {
     }
 
     const end = Date.now();
-    this.server.listen(port, host);
+    // this.server.listen(port, host);
+    // TODO: Temporarily remove the problem of websocket port inconsistency in subsequent migration of host configuration
+    this.server.listen(port);
     this.error(port, host);
     this.startDevLogger(start, end);
     if (open) {
@@ -192,11 +194,10 @@ export class DevServer implements ImplDevServer {
       userConfig.server,
       'development'
     );
-    userConfig.server = normalizedDevConfig;
 
     let devPort = normalizedDevConfig.port;
     let hmrPort = DEFAULT_HMR_OPTIONS.port;
-    const { strictPort, host } = normalizedDevConfig;
+    const { strictPort } = normalizedDevConfig;
     const httpServer = http.createServer();
     const isPortAvailable = (portToCheck: number) => {
       return new Promise((resolve, reject) => {
@@ -204,32 +205,31 @@ export class DevServer implements ImplDevServer {
           if (error.code === 'EADDRINUSE') {
             clearScreen();
             logger.warn(`Port ${devPort} is in use, trying another one...`);
-            httpServer.removeListener('error', onError);
             resolve(false);
           } else {
             reject(true);
           }
         };
-        if (strictPort) {
+        httpServer.on('error', onError);
+        httpServer.on('listening', () => {
           httpServer.removeListener('error', onError);
-          reject(new Error(`Port ${devPort} is already in use`));
-        } else {
-          httpServer.on('error', onError);
-          httpServer.on('listening', () => {
-            httpServer.close();
-            resolve(true);
-          });
-          httpServer.listen(portToCheck, host);
-        }
+          httpServer.close();
+          resolve(true);
+        });
+        httpServer.listen(portToCheck, '::');
       });
     };
-
-    let isPortAvailableResult = await isPortAvailable(devPort);
-    while (isPortAvailableResult === false) {
-      userConfig.server.hmr = { port: ++hmrPort };
-      userConfig.server.port = ++devPort;
-      isPortAvailableResult = await isPortAvailable(devPort);
+    if (strictPort) {
+      throw new Error(`Port ${devPort} is already in use`);
+    } else {
+      let isPortAvailableResult = await isPortAvailable(devPort);
+      while (isPortAvailableResult === false) {
+        userConfig.server.hmr = { port: ++hmrPort };
+        userConfig.server.port = ++devPort;
+        isPortAvailableResult = await isPortAvailable(devPort);
+      }
     }
+    return;
   }
 
   /**

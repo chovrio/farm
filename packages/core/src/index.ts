@@ -38,6 +38,9 @@ export async function start(
   const normalizedConfig = await normalizeUserCompilationConfig(config);
   setProcessEnv(normalizedConfig.config.mode);
 
+  // check port availability: auto increment the port if a conflict occurs
+  await DevServer.resolvePortConflict(config, logger);
+
   const compiler = new Compiler(normalizedConfig);
   const devServer = new DevServer(compiler, logger, config);
 

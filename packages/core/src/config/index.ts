@@ -9,7 +9,6 @@ import chalk from 'chalk';
 
 import { bindingPath, Config } from '../../binding/index.js';
 import { JsPlugin } from '../plugin/index.js';
-// import { DevServer } from '../server/index.js';
 import { rustPluginResolver } from '../plugin/rustPluginResolver.js';
 import { parseUserConfig } from './schema.js';
 
@@ -365,9 +364,6 @@ export async function resolveUserConfig(
   if (!userConfig.root) {
     userConfig.root = root;
   }
-
-  // check port availability: auto increment the port if a conflict occurs
-  await DevServer.resolvePortConflict(userConfig, logger);
 
   return userConfig;
 }
